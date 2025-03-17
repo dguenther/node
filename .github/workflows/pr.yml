@@ -10,8 +10,8 @@ jobs:
     strategy:
       matrix:
         settings:
-          - arch: linux/amd64
-            runs-on: ubuntu-24.04
+          # - arch: linux/amd64
+          #   runs-on: ubuntu-24.04
           - arch: linux/arm64
             runs-on: ubuntu-24.04-arm
     runs-on: ${{ matrix.settings.runs-on }}
@@ -44,9 +44,9 @@ jobs:
     strategy:
       matrix:
         settings:
-          - arch: linux/amd64
-            runs-on: ubuntu-24.04
-            features: jemalloc,asm-keccak,optimism
+          # - arch: linux/amd64
+          #   runs-on: ubuntu-24.04
+          #   features: jemalloc,asm-keccak,optimism
           - arch: linux/arm64
             runs-on: ubuntu-24.04-arm
             features: jemalloc,optimism
@@ -82,8 +82,8 @@ jobs:
     strategy:
       matrix:
         settings:
-          - arch: linux/amd64
-            runs-on: ubuntu-24.04
+          # - arch: linux/amd64
+          #   runs-on: ubuntu-24.04
           - arch: linux/arm64
             runs-on: ubuntu-24.04-arm
     runs-on: ${{ matrix.settings.runs-on}}
