@@ -1,8 +1,7 @@
 name: Pull Request
 
 on:
-  pull_request:
-  workflow_dispatch:
+  push:
 
 jobs:
   geth:
@@ -10,9 +9,9 @@ jobs:
       matrix:
         settings:
           - arch: linux/amd64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-22.04
           - arch: linux/arm64
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-22.04-arm
     runs-on: ${{ matrix.settings.runs-on }}
     steps:
       - name: Checkout
@@ -36,10 +35,10 @@ jobs:
       matrix:
         settings:
           - arch: linux/amd64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-22.04
             features: jemalloc,asm-keccak,optimism
           - arch: linux/arm64
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-22.04-arm
             features: jemalloc,optimism
     runs-on: ${{ matrix.settings.runs-on}}
     steps:
@@ -64,9 +63,9 @@ jobs:
       matrix:
         settings:
           - arch: linux/amd64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-22.04
           - arch: linux/arm64
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-22.04-arm
     runs-on: ${{ matrix.settings.runs-on}}
     steps:
       - name: Checkout
