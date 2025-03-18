@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  NAMESPACE: ghcr.io/base
+  NAMESPACE: ghcr.io/dguenther
   GETH_DEPRECATED_IMAGE_NAME: node
   GETH_IMAGE_NAME: node-geth
   RETH_IMAGE_NAME: node-reth
