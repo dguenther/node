@@ -50,7 +50,7 @@ jobs:
         with:
           context: .
           file: geth/Dockerfile          
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ env.NAMESPACE }}/${{ env.GETH_DEPRECATED_IMAGE_NAME }},${{ env.NAMESPACE }}/${{ env.GETH_IMAGE_NAME }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: ${{ matrix.settings.arch }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
