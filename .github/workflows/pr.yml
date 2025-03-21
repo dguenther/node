@@ -26,8 +26,8 @@ jobs:
     steps:
       - name: Prepare
         run: |
-          echo "Platform ${{ matrix.arch.platform }}"
-          echo "Runs-on: ${{ matrix.arch.runs-on }}"
+          echo "Platform ${{ matrix.platform }}"
+          echo "Runs-on: ${{ matrix.runs-on }}"
           echo "Client: ${{ matrix.client }}"
           echo "Features: ${{ matrix.features }}"
 
