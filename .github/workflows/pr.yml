@@ -16,10 +16,12 @@ jobs:
             runs-on: ubuntu-24.04-arm
         include:
           - client: reth
-            arch: linux/amd64
+            arch:
+              - platform: linux/amd64
             features: jemalloc,asm-keccak,optimism
           - client: reth
-            arch: linux/arm64
+            arch: 
+              - platform: linux/arm64
             features: jemalloc,optimism
           
     runs-on: ubuntu-24.04
