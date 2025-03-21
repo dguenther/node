@@ -1,0 +1,109 @@
+name: Build and Push Docker Images
+
+on:
+  workflow_call:
+    inputs:
+      push:
+        description: Push the images
+        required: true
+        type: boolean
+    outputs:
+      registry:
+        description: The registry to push the images to
+        value: ${{ jobs.build.outputs.registry }}
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        client: [geth, reth, nethermind]
+        platform: [linux/amd64, linux/arm64]
+        include:
+          - client: geth
+            images: node,node-geth
+          - client: reth
+            images: node-reth
+          - client: nethermind
+            images: node-nethermind
+          - platform: linux/amd64
+            runs-on: ubuntu-24.04
+          - platform: linux/arm64
+            runs-on: ubuntu-24.04-arm
+          - client: reth
+            platform: linux/amd64
+            features: jemalloc,asm-keccak,optimism
+          - client: reth
+            platform: linux/arm64
+            features: jemalloc,optimism
+          
+    outputs:
+      registry: ${{ env.REGISTRY }}
+
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare variables
+        id: prepare
+        run: |
+          escapedNamespace=$(echo "${{ env.NAMESPACE }}" | sed 's/\//\\\//g')
+          # Split on commas, prepend the namespace, and rejoin
+          namespacedImages=$(echo "${{ matrix.images }}" | sed -e "s/[^,]*/$escapedNamespace\/&/g")
+          echo $namespacedImages
+
+          imageName=${{ matrix.client }}-$(echo "${{ matrix.platform }}" | tr '/' '-')
+          echo $imageName
+
+          echo "imageName=$imageName" >> $GITHUB_OUTPUT
+          echo "namespacedImages=$namespacedImages" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata for the Docker image
+        id: meta
+        uses: docker/metadata-action@v5
+
+      - name: Log into the Container registry
+        if: ${{ inputs.push }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the Docker image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.client }}/Dockerfile
+          platforms: ${{ matrix.platform }}
+          tags: ${{ steps.prepare.outputs.namespacedImages }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: ${{ inputs.push && 'type=image,push-by-digest=true,name-canonical=true,push=true' || format('type=docker,dest={0}/{1}.tar', runner.temp, steps.prepare.outputs.imageName) }}
+          build-args: |
+            FEATURES=${{ matrix.features }}
+
+      - name: Export digest
+        if: ${{ inputs.push }}
+        run: |
+          digest="${{ steps.build.outputs.digest }}"
+          mkdir -p ${{ runner.temp }}/upload
+          touch "${{ runner.temp }}/upload/${digest#sha256:}.digest"
+          echo "${{ steps.prepare.outputs.namespacedImages }}" >> "${{ runner.temp }}/upload/images"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.prepare.outputs.imageName }}
+          path: ${{ runner.temp }}/upload/*
+          if-no-files-found: error
+
