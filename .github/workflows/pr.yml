@@ -32,8 +32,6 @@ jobs:
           echo "Runs-on: ${{ matrix.arch.runs-on }}"
           echo "Client: ${{ matrix.client }}"
           echo "Features: ${{ matrix.features }}"
-          echo "Matrix=${{ matrix }}
-
 
       # - name: Checkout
       #   uses: actions/checkout@v4
