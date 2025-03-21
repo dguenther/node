@@ -22,41 +22,34 @@ jobs:
             platform: linux/arm64
             features: jemalloc,optimism
           
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.platform.runs-on }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Prepare
         run: |
-          echo "Platform ${{ matrix.platform }}"
-          echo "Runs-on: ${{ matrix.runs-on }}"
-          echo "Client: ${{ matrix.client }}"
-          echo "Features: ${{ matrix.features }}"
+          PLATFORM_PAIR=${${{ matrix.platform }}//\//-}
+          echo "IMAGE_NAME=${{ matrix.client }}-$PLATFORM_PAIR" >> $GITHUB_ENV
 
-      # - name: Checkout
-      #   uses: actions/checkout@v4
-      #   with:
-      #     ref: ${{ github.event.pull_request.head.sha }}
+      - name: Build the Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.client }}/Dockerfile
+          push: false
+          platforms: ${{ matrix.platform }}
+          outputs: type=docker,dest=${{ runner.temp }}/${{ env.IMAGE_NAME }}.tar
+          build-args: |
+            FEATURES=${{ matrix.features }}
 
-      # - name: Set up Docker Buildx
-      #   uses: docker/setup-buildx-action@v3
-
-      # - name: Prepare
-      #   run: |
-      #     PLATFORM_PAIR=${${{ matrix.arch.platform }}//\//-}
-      #     echo "IMAGE_NAME=${{ matrix.client }}-$PLATFORM_PAIR" >> $GITHUB_ENV
-
-      # - name: Build the Docker image
-      #   uses: docker/build-push-action@v6
-      #   with:
-      #     context: .
-      #     file: ${{ matrix.client }}/Dockerfile
-      #     push: false
-      #     platforms: ${{ matrix.arch }}
-      #     outputs: type=docker,dest=${{ runner.temp }}/${{ env.IMAGE_NAME }}.tar
-      #     build-args: |
-      #       FEATURES=${{ matrix.features }}
-
-      # - name: Upload artifact
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: ${{ env.IMAGE_NAME }}
-      #     path: ${{ runner.temp }}/${{ env.IMAGE_NAME }}.tar
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.IMAGE_NAME }}
+          path: ${{ runner.temp }}/${{ env.IMAGE_NAME }}.tar
