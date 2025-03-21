@@ -5,80 +5,51 @@ on:
   workflow_dispatch:
 
 jobs:
-  geth:
+  build:
     strategy:
       matrix:
-        settings:
-          - arch: linux/amd64
+        client: [geth, reth, nethermind]
+        arch: 
+          - platform: linux/amd64
             runs-on: ubuntu-24.04
-          - arch: linux/arm64
+          - platform: linux/arm64
             runs-on: ubuntu-24.04-arm
-    runs-on: ${{ matrix.settings.runs-on }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build the Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: geth/Dockerfile
-          push: false
-          platforms: ${{ matrix.settings.arch }}
-
-  reth:
-    strategy:
-      matrix:
-        settings:
-          - arch: linux/amd64
-            runs-on: ubuntu-24.04
+        include:
+          - client: reth
+            arch: linux/amd64
             features: jemalloc,asm-keccak,optimism
-          - arch: linux/arm64
-            runs-on: ubuntu-24.04-arm
+          - client: reth
+            arch: linux/arm64
             features: jemalloc,optimism
-    runs-on: ${{ matrix.settings.runs-on}}
+          
+    runs-on: ${{ matrix.arch.runs-on }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Build the Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: reth/Dockerfile
-          push: false
-          build-args: |
-            FEATURES=${{ matrix.settings.features }}
-          platforms: ${{ matrix.settings.arch }}
 
-  nethermind:
-    strategy:
-      matrix:
-        settings:
-          - arch: linux/amd64
-            runs-on: ubuntu-24.04
-          - arch: linux/arm64
-            runs-on: ubuntu-24.04-arm
-    runs-on: ${{ matrix.settings.runs-on}}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Prepare
+        run: |
+          PLATFORM_PAIR=${${{ matrix.arch.platform }}//\//-}
+          echo "IMAGE_NAME=${{ matrix.client }}-$PLATFORM_PAIR" >> $GITHUB_ENV
+
       - name: Build the Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: nethermind/Dockerfile
+          file: ${{ matrix.client }}/Dockerfile
           push: false
-          platforms: ${{ matrix.settings.arch }}
+          platforms: ${{ matrix.arch }}
+          outputs: type=docker,dest=${{ runner.temp }}/${{ env.IMAGE_NAME }}.tar
+          build-args: |
+            FEATURES=${{ matrix.features }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.IMAGE_NAME }}
+          path: ${{ runner.temp }}/${{ env.IMAGE_NAME }}.tar
