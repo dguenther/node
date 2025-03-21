@@ -9,19 +9,17 @@ jobs:
     strategy:
       matrix:
         client: [geth, reth, nethermind]
-        arch: 
+        platform: [linux/amd64, linux/arm64]
+        include:
           - platform: linux/amd64
             runs-on: ubuntu-24.04
           - platform: linux/arm64
             runs-on: ubuntu-24.04-arm
-        include:
           - client: reth
-            arch:
-              - platform: linux/amd64
+            platform: linux/amd64
             features: jemalloc,asm-keccak,optimism
           - client: reth
-            arch: 
-              - platform: linux/arm64
+            platform: linux/arm64
             features: jemalloc,optimism
           
     runs-on: ubuntu-24.04
