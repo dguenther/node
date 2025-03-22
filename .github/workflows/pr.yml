@@ -39,6 +39,9 @@ jobs:
           #   platform: linux/arm64
           #   features: jemalloc,optimism
           
+    outputs:
+      registry: ${{ env.REGISTRY }}
+
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Checkout
@@ -87,51 +90,4 @@ jobs:
           name: ${{ steps.prepare.outputs.imageName }}
           path: ${{ runner.temp }}/*
           if-no-files-found: error
-
-  push:
-    needs: build
-    if: ${{ inputs.push }}
-    strategy:
-      matrix:
-        client: [geth, nethermind]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          path: ${{ runner.temp }}
-          pattern: ${{ matrix.client }}-*
-          merge-multiple: true
-
-      - name: Log into the Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Prepare variables
-        id: prepare
-        run: |
-          newlineImages=$(cat ${{ runner.temp }}/images | tr ',' '\n')
-          echo $newlineImages
-          echo "newlineImages=$newlineImages" >> $GITHUB_OUTPUT
-
-      - name: Extract metadata for the Docker image
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.prepare.outputs.newlineImages }}
-
-      - name: Create manifest list and push
-        working-directory: ${{ runner.temp }}
-        run: |
-          echo "${{ steps.prepare.outputs.newlineImages }}" | xargs -I {} \
-            docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-              $(printf '{}@sha256:%s ' *.digest)
-
-      - name: Inspect image
-        run: |
-          echo "${{ steps.prepare.outputs.newlineImages }}" | xargs -I {} \
-            docker buildx imagetools inspect {}:${{ steps.meta.outputs.version }}
 

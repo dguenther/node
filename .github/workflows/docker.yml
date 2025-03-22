@@ -12,3 +12,50 @@ jobs:
     uses: ./.github/workflows/pr.yml
     with:
       push: true
+
+  push:
+    needs: build
+    strategy:
+      matrix:
+        client: [geth, nethermind]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}
+          pattern: ${{ matrix.client }}-*
+          merge-multiple: true
+
+      - name: Log into the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.build.outputs.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare variables
+        id: prepare
+        run: |
+          newlineImages=$(cat ${{ runner.temp }}/images | tr ',' '\n')
+          echo $newlineImages
+          echo "newlineImages=$newlineImages" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata for the Docker image
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.prepare.outputs.newlineImages }}
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}
+        run: |
+          echo "${{ steps.prepare.outputs.newlineImages }}" | xargs -I {} \
+            docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+              $(printf '{}@sha256:%s ' *.digest)
+
+      - name: Inspect image
+        run: |
+          echo "${{ steps.prepare.outputs.newlineImages }}" | xargs -I {} \
+            docker buildx imagetools inspect {}:${{ steps.meta.outputs.version }}
+    
