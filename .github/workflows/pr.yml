@@ -58,7 +58,9 @@ jobs:
           PLATFORM_PAIR=$(echo "${{ matrix.platform }}" | tr '/' '-')
           echo "imageName=${{ matrix.client }}-$PLATFORM_PAIR" >> $GITHUB_OUTPUT
           # Split on commas, prepend the namespace, and rejoin
-          echo "namespacedImages=$(echo "${{ matrix.images }}" | sed -e "s/[^,]*/${{ env.NAMESPACE }}\/&/g")" >> $GITHUB_OUTPUT
+          namespacedImages=$(echo "${{ matrix.images }}" | sed -e "s/[^,]*/${{ env.NAMESPACE }}\/&/g")
+          echo $namespacedImages
+          echo "namespacedImages=$namespacedImages" >> $GITHUB_OUTPUT
 
       - name: Extract metadata for the Docker image
         id: meta
