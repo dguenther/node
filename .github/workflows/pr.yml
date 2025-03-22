@@ -62,6 +62,7 @@ jobs:
 
           imageName=${{ matrix.client }}-$(echo "${{ matrix.platform }}" | tr '/' '-')
           echo $imageName
+          echo ${{ env.REGISTRY }}
 
           echo "imageName=$imageName" >> $GITHUB_OUTPUT
           echo "namespacedImages=$namespacedImages" >> $GITHUB_OUTPUT
