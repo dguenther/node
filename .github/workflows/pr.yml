@@ -19,25 +19,25 @@ jobs:
   build:
     strategy:
       matrix:
-        client: [geth, reth, nethermind]
+        client: [geth, nethermind]
         platform: [linux/amd64, linux/arm64]
         include:
           - client: geth
             images: node,node-geth
-          - client: reth
-            images: node-reth
+          # - client: reth
+          #   images: node-reth
           - client: nethermind
             images: node-nethermind
           - platform: linux/amd64
             runs-on: ubuntu-24.04
           - platform: linux/arm64
             runs-on: ubuntu-24.04-arm
-          - client: reth
-            platform: linux/amd64
-            features: jemalloc,asm-keccak,optimism
-          - client: reth
-            platform: linux/arm64
-            features: jemalloc,optimism
+          # - client: reth
+          #   platform: linux/amd64
+          #   features: jemalloc,asm-keccak,optimism
+          # - client: reth
+          #   platform: linux/arm64
+          #   features: jemalloc,optimism
           
     runs-on: ${{ matrix.runs-on }}
     steps:
@@ -93,7 +93,7 @@ jobs:
     if: ${{ inputs.push }}
     strategy:
       matrix:
-        client: [geth, reth, nethermind]
+        client: [geth, nethermind]
     runs-on: ubuntu-latest
     steps:
       - name: Download artifact
