@@ -10,6 +10,10 @@ on:
         required: false
         default: false
         type: boolean
+    outputs:
+      registry:
+        description: The registry to push the images to
+        value: ${{ jobs.build.outputs.registry }}
 
 env:
   REGISTRY: ghcr.io
@@ -40,7 +44,7 @@ jobs:
           #   features: jemalloc,optimism
           
     outputs:
-      registry: ghcr.io
+      registry: ${{ env.REGISTRY }}
 
     runs-on: ${{ matrix.runs-on }}
     steps:
