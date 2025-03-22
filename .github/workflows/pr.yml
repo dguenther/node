@@ -100,6 +100,7 @@ jobs:
         run: |
           digest="${{ steps.build.outputs.digest }}"
           touch "${{ runner.temp }}/${digest#sha256:}.digest"
+          echo $NAMESPACED_IMAGES
           echo $NAMESPACED_IMAGES >> "${{ runner.temp }}/images"
 
       - name: Upload artifact
