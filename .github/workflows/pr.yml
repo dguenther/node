@@ -100,8 +100,7 @@ jobs:
         run: |
           digest="${{ steps.build.outputs.digest }}"
           touch "${{ runner.temp }}/${digest#sha256:}.digest"
-          echo $NAMESPACED_IMAGES
-          echo $NAMESPACED_IMAGES >> "${{ runner.temp }}/images"
+          echo "${{ steps.prepare.outputs.namespacedImages }}" >> "${{ runner.temp }}/images"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
