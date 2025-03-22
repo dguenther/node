@@ -59,8 +59,11 @@ jobs:
           # Split on commas, prepend the namespace, and rejoin
           namespacedImages=$(echo "${{ matrix.images }}" | sed -e "s/[^,]*/$escapedNamespace\/&/g")
           echo $namespacedImages
-          PLATFORM_PAIR=$(echo "${{ matrix.platform }}" | tr '/' '-')
-          echo "imageName=${{ matrix.client }}-$PLATFORM_PAIR" >> $GITHUB_OUTPUT
+
+          imageName=${{ matrix.client }}-$(echo "${{ matrix.platform }}" | tr '/' '-')
+          echo $imageName
+
+          echo "imageName=$imageName" >> $GITHUB_OUTPUT
           echo "namespacedImages=$namespacedImages" >> $GITHUB_OUTPUT
 
       - name: Extract metadata for the Docker image
