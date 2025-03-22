@@ -55,11 +55,12 @@ jobs:
       - name: Prepare
         id: prepare
         run: |
+          escapedNamespace = $(echo "${{ env.NAMESPACE }}" | sed 's/\//\\\//g')
+          # Split on commas, prepend the namespace, and rejoin
+          namespacedImages=$(echo "${{ matrix.images }}" | sed -e "s/[^,]*/$escapedNamespace\/&/g")
+          echo $namespacedImages
           PLATFORM_PAIR=$(echo "${{ matrix.platform }}" | tr '/' '-')
           echo "imageName=${{ matrix.client }}-$PLATFORM_PAIR" >> $GITHUB_OUTPUT
-          # Split on commas, prepend the namespace, and rejoin
-          namespacedImages=$(echo "${{ matrix.images }}" | sed -e "s/[^,]*/${{ env.NAMESPACE }}\/&/g")
-          echo $namespacedImages
           echo "namespacedImages=$namespacedImages" >> $GITHUB_OUTPUT
 
       - name: Extract metadata for the Docker image
