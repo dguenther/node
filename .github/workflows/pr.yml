@@ -3,6 +3,17 @@ name: Pull Request
 on:
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      push:
+        description: Push the images
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: ghcr.io/${{ github.repository_owner }}
 
 jobs:
   build:
@@ -11,6 +22,12 @@ jobs:
         client: [geth, reth, nethermind]
         platform: [linux/amd64, linux/arm64]
         include:
+          - client: geth
+            images: node,node-geth
+          - client: reth
+            images: node-reth
+          - client: nethermind
+            images: node-nethermind
           - platform: linux/amd64
             runs-on: ubuntu-24.04
           - platform: linux/arm64
@@ -33,24 +50,88 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Prepare
+        id: prepare
         run: |
           PLATFORM_PAIR=$(echo "${{ matrix.platform }}" | tr '/' '-')
-          echo $PLATFORM_PAIR
-          echo "IMAGE_NAME=${{ matrix.client }}-$PLATFORM_PAIR" >> $GITHUB_ENV
+          echo "imageName=${{ matrix.client }}-$PLATFORM_PAIR" >> $GITHUB_OUTPUT
+          # Split on commas, prepend the namespace, and rejoin
+          echo "namespacedImages=$(echo "${{ matrix.images }}" | sed -e "s/[^,]*/${{ env.NAMESPACE }}\/&/g")" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata for the Docker image
+        id: meta
+        uses: docker/metadata-action@v5
 
       - name: Build the Docker image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ${{ matrix.client }}/Dockerfile
-          push: false
           platforms: ${{ matrix.platform }}
-          outputs: type=docker,dest=${{ runner.temp }}/${{ env.IMAGE_NAME }}.tar
+          tags: ${{ steps.prepare.outputs.namespacedImages }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: ${{ inputs.push && 'type=image,push-by-digest=true,name-canonical=true,push=true' || format('type=docker,dest={0}/{1}.tar', runner.temp, steps.prepare.outputs.imageName) }}
           build-args: |
             FEATURES=${{ matrix.features }}
+
+      - name: Export digest
+        if: ${{ inputs.push }}
+        run: |
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/${digest#sha256:}.digest"
+          echo $NAMESPACED_IMAGES >> "${{ runner.temp }}/images"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.IMAGE_NAME }}
-          path: ${{ runner.temp }}/${{ env.IMAGE_NAME }}.tar
+          name: ${{ steps.prepare.outputs.imageName }}
+          path: ${{ runner.temp }}/*
+          if-no-files-found: error
+
+  push:
+    needs: build
+    if: ${{ inputs.push }}
+    strategy:
+      matrix:
+        client: [geth, reth, nethermind]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}
+          pattern: ${{ matrix.client }}-*
+          merge-multiple: true
+
+      - name: Log into the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare variables
+        id: prepare
+        run: |
+          newlineImages=$(cat ${{ runner.temp }}/images | tr ',' '\n')
+          echo $newlineImages
+          echo "newlineImages=$newlineImages" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata for the Docker image
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.prepare.outputs.newlineImages }}
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}
+        run: |
+          echo "${{ steps.prepare.outputs.newlineImages }}" | xargs -I {} \
+            docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+              $(printf '{}@sha256:%s ' *.digest)
+
+      - name: Inspect image
+        run: |
+          echo "${{ steps.prepare.outputs.newlineImages }}" | xargs -I {} \
+            docker buildx imagetools inspect {}:${{ steps.meta.outputs.version }}
+
