@@ -40,7 +40,7 @@ jobs:
           #   features: jemalloc,optimism
           
     outputs:
-      registry: ${{ env.REGISTRY }}
+      registry: ghcr.io
 
     runs-on: ${{ matrix.runs-on }}
     steps:
