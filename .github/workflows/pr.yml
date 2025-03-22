@@ -3,82 +3,91 @@ name: Pull Request
 on:
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      push:
+        description: Push the images
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: ghcr.io/${{ github.repository_owner }}
 
 jobs:
-  geth:
+  build:
     strategy:
       matrix:
-        settings:
-          - arch: linux/amd64
+        client: [geth, nethermind]
+        platform: [linux/amd64, linux/arm64]
+        include:
+          - client: geth
+            images: node,node-geth
+          # - client: reth
+          #   images: node-reth
+          - client: nethermind
+            images: node-nethermind
+          - platform: linux/amd64
             runs-on: ubuntu-24.04
-          - arch: linux/arm64
+          - platform: linux/arm64
             runs-on: ubuntu-24.04-arm
-    runs-on: ${{ matrix.settings.runs-on }}
+          # - client: reth
+          #   platform: linux/amd64
+          #   features: jemalloc,asm-keccak,optimism
+          # - client: reth
+          #   platform: linux/arm64
+          #   features: jemalloc,optimism
+          
+    outputs:
+      registry: ${{ env.REGISTRY }}
+
+    runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build the Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: geth/Dockerfile
-          push: false
-          platforms: ${{ matrix.settings.arch }}
+      - name: Prepare
+        id: prepare
+        run: |
+          PLATFORM_PAIR=$(echo "${{ matrix.platform }}" | tr '/' '-')
+          echo "imageName=${{ matrix.client }}-$PLATFORM_PAIR" >> $GITHUB_OUTPUT
+          # Split on commas, prepend the namespace, and rejoin
+          echo "namespacedImages=$(echo "${{ matrix.images }}" | sed -e "s/[^,]*/${{ env.NAMESPACE }}\/&/g")" >> $GITHUB_OUTPUT
 
-  reth:
-    strategy:
-      matrix:
-        settings:
-          - arch: linux/amd64
-            runs-on: ubuntu-24.04
-            features: jemalloc,asm-keccak,optimism
-          - arch: linux/arm64
-            runs-on: ubuntu-24.04-arm
-            features: jemalloc,optimism
-    runs-on: ${{ matrix.settings.runs-on}}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Extract metadata for the Docker image
+        id: meta
+        uses: docker/metadata-action@v5
+
       - name: Build the Docker image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: reth/Dockerfile
-          push: false
+          file: ${{ matrix.client }}/Dockerfile
+          platforms: ${{ matrix.platform }}
+          tags: ${{ steps.prepare.outputs.namespacedImages }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: ${{ inputs.push && 'type=image,push-by-digest=true,name-canonical=true,push=true' || format('type=docker,dest={0}/{1}.tar', runner.temp, steps.prepare.outputs.imageName) }}
           build-args: |
-            FEATURES=${{ matrix.settings.features }}
-          platforms: ${{ matrix.settings.arch }}
+            FEATURES=${{ matrix.features }}
 
-  nethermind:
-    strategy:
-      matrix:
-        settings:
-          - arch: linux/amd64
-            runs-on: ubuntu-24.04
-          - arch: linux/arm64
-            runs-on: ubuntu-24.04-arm
-    runs-on: ${{ matrix.settings.runs-on}}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Export digest
+        if: ${{ inputs.push }}
+        run: |
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/${digest#sha256:}.digest"
+          echo $NAMESPACED_IMAGES >> "${{ runner.temp }}/images"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Build the Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: nethermind/Dockerfile
-          push: false
-          platforms: ${{ matrix.settings.arch }}
+          name: ${{ steps.prepare.outputs.imageName }}
+          path: ${{ runner.temp }}/*
+          if-no-files-found: error
+
