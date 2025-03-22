@@ -37,6 +37,7 @@ jobs:
       - name: Prepare variables
         id: prepare
         run: |
+          ls ${{ runner.temp }}
           newlineImages=$(cat ${{ runner.temp }}/images | tr ',' '\n')
           echo $newlineImages
           echo "newlineImages=$newlineImages" >> $GITHUB_OUTPUT
