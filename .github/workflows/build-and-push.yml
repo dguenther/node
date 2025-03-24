@@ -64,6 +64,8 @@ jobs:
           imageName=${{ matrix.client }}-$(echo "${{ matrix.platform }}" | tr '/' '-')
           echo $imageName
 
+          mkdir -p ${{ runner.temp }}/upload
+
           echo "imageName=$imageName" >> $GITHUB_OUTPUT
           echo "namespacedImages=$namespacedImages" >> $GITHUB_OUTPUT
 
@@ -88,7 +90,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           tags: ${{ steps.prepare.outputs.namespacedImages }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: ${{ inputs.push && 'type=image,push-by-digest=true,name-canonical=true,push=true' || format('type=docker,dest={0}/{1}.tar', runner.temp, steps.prepare.outputs.imageName) }}
+          outputs: ${{ inputs.push && 'type=image,push-by-digest=true,name-canonical=true,push=true' || format('type=docker,dest={0}/upload/{1}.tar', runner.temp, steps.prepare.outputs.imageName) }}
           build-args: |
             FEATURES=${{ matrix.features }}
 
@@ -96,7 +98,6 @@ jobs:
         if: ${{ inputs.push }}
         run: |
           digest="${{ steps.build.outputs.digest }}"
-          mkdir -p ${{ runner.temp }}/upload
           touch "${{ runner.temp }}/upload/${digest#sha256:}.digest"
           echo "${{ steps.prepare.outputs.namespacedImages }}" >> "${{ runner.temp }}/upload/images"
 
